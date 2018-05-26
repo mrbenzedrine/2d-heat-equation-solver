@@ -1,6 +1,8 @@
 #include <iostream>
 #include <eigen3/Eigen/Eigen>
 
+#include "condition_functions.h"
+
 int main()
 {
     
@@ -31,7 +33,38 @@ int main()
     ySpacePoints = Eigen::VectorXd::LinSpaced(N_y + 1, startY, endY);
     timePoints = Eigen::VectorXd::LinSpaced(noOfTimePoints, startT, endT);
 
+    // Solution matrix for the 0th timestep
     Eigen::MatrixXd U(ySpacePoints.size(), xSpacePoints.size());
     U.setZero();
+
+    // Solution matrix for the 1st timestep
+    Eigen::MatrixXd V(ySpacePoints.size(), xSpacePoints.size());
+    V.setZero();
+
+    // IC
+
+    for(int k = 0; k < U.rows(); k++)
+    {
+        for(int j = 0; j < U.cols(); j++)
+        {
+            U(k, j) = ic_func(xSpacePoints(j, 0), ySpacePoints(k, 0));
+        }
+    }
+
+    // BCs
+
+    // x boundaries
+    for(int k = 0; k < U.rows(); k++)
+    {
+        V(k, 0) = U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
+        V(k, V.cols() - 1) = U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
+    }
+
+    // y boundaries
+    for(int j = 0; j < U.cols(); j++)
+    {
+        V(0, j) = U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
+        V(V.rows() - 1, j) = U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+    }
 
 }
