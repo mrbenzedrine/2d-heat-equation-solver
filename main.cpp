@@ -114,4 +114,60 @@ int main()
         }
     }
 
+    // FTCS
+    // PDE: u_t = u_xx + u_yy
+
+    Eigen::MatrixXd b((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd previousTimestep((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd nextTimestep((N_x - 1) * (N_y - 1), 1);
+    b.setZero();
+    previousTimestep.setZero();
+    nextTimestep.setZero();
+
+    for(int i = 1; i < U.rows() - 1; i++)
+    {
+        for(int j = 1; j < U.cols() - 1; j++)
+        {
+            previousTimestep((i-1) * (U.cols() - 2) + (j-1), 0) = U(i, j);
+        }
+    }
+
+    // Putting the appropriate boundary points into the vector b
+
+    for(int i = 1; i < U.rows() - 1; i++)
+    {
+        for(int j = 1; j < U.cols() - 1; j++)
+        {
+            if(i - 1 == 0)
+            {
+                b((i-1) * (U.cols() - 2) + (j-1), 0) += r * U(i-1, j);
+            }
+            else if(i + 1 == N_y)
+            {
+                b((i-1) * (U.cols() - 2) + (j-1), 0) += r * U(i+1, j);
+            }
+
+            if(j - 1 == 0)
+            {
+                b((i-1) * (U.cols() - 2) + (j-1), 0) += q * U(i, j-1);
+            }
+            else if(j + 1 == N_x)
+            {
+                b((i-1) * (U.cols() - 2) + (j-1), 0) += q * U(i, j+1);
+            }
+        }
+    }
+
+    nextTimestep = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestep + b;
+
+    // Copy info from nextTimestep into V
+
+    for(int i = 1; i < U.rows() - 1; i++)
+    {
+        for(int j = 1; j < U.cols() - 1; j++)
+        {
+            V(i, j) = nextTimestep((i-1) * (V.cols() - 2) + (j-1), 0);
+        }
+    }
+
 }
