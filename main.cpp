@@ -39,8 +39,8 @@ int main()
     U.setZero();
 
     // Solution matrix for the next timestep
-    Eigen::MatrixXd V(ySpacePoints.size(), xSpacePoints.size());
-    V.setZero();
+    Eigen::MatrixXd nextTimestepMatrix(ySpacePoints.size(), xSpacePoints.size());
+    nextTimestepMatrix.setZero();
 
     // IC
 
@@ -122,7 +122,7 @@ int main()
 
     Eigen::MatrixXd b((N_x - 1) * (N_y - 1), 1);
     Eigen::MatrixXd previousTimestepVector((N_x - 1) * (N_y - 1), 1);
-    Eigen::MatrixXd nextTimestep((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd nextTimestepVector((N_x - 1) * (N_y - 1), 1);
 
     // FTCS
     // PDE: u_t = u_xx + u_yy
@@ -133,17 +133,17 @@ int main()
         // Set the BCs for the solution matrix of the next timestep
 
         // x boundaries
-        for(int k = 0; k < V.rows(); k++)
+        for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            V(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
-            V(k, V.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
+            nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
+            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
         }
 
         // y boundaries
-        for(int j = 0; j < V.cols(); j++)
+        for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            V(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
-            V(V.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+            nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
+            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
         }
 
         // Grab the previous timestep's solution matrix for convenience
@@ -151,7 +151,7 @@ int main()
 
         b.setZero();
         previousTimestepVector.setZero();
-        nextTimestep.setZero();
+        nextTimestepVector.setZero();
 
         for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
         {
@@ -187,25 +187,25 @@ int main()
             }
         }
 
-        nextTimestep = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
+        nextTimestepVector = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
 
-        // Copy info from nextTimestep into V
+        // Copy info from nextTimestepVector into nextTimestepMatrix
 
         for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
         {
             for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
             {
-                V(i, j) = nextTimestep((i-1) * (V.cols() - 2) + (j-1), 0);
+                nextTimestepMatrix(i, j) = nextTimestepVector((i-1) * (nextTimestepMatrix.cols() - 2) + (j-1), 0);
             }
         }
 
-        // Put V into the vector of solution matrices
+        // Put nextTimestepMatrix into the vector of solution matrices
 
-        solutionMatrices[n] = V;
+        solutionMatrices[n] = nextTimestepMatrix;
 
-        // Reset V in preparation for the next timestep
+        // Reset nextTimestepMatrix in preparation for the next timestep
 
-        V.setZero();
+        nextTimestepMatrix.setZero();
 
     }
 
