@@ -1,5 +1,6 @@
 #include <iostream>
 #include <eigen3/Eigen/Eigen>
+#include <vector>
 
 #include "condition_functions.h"
 
@@ -37,7 +38,7 @@ int main()
     Eigen::MatrixXd U(ySpacePoints.size(), xSpacePoints.size());
     U.setZero();
 
-    // Solution matrix for the 1st timestep
+    // Solution matrix for the next timestep
     Eigen::MatrixXd V(ySpacePoints.size(), xSpacePoints.size());
     V.setZero();
 
@@ -56,15 +57,15 @@ int main()
     // x boundaries
     for(int k = 0; k < U.rows(); k++)
     {
-        V(k, 0) = U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
-        V(k, V.cols() - 1) = U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
+        U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
+        U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
     }
 
     // y boundaries
     for(int j = 0; j < U.cols(); j++)
     {
-        V(0, j) = U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
-        V(V.rows() - 1, j) = U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+        U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
+        U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
     }
 
     // Define submatrices that will form the block matrices in the method equation
@@ -114,60 +115,98 @@ int main()
         }
     }
 
+    // Create vector that will contain the solution matrices for all timesteps
+
+    std::vector<Eigen::MatrixXd> solutionMatrices(noOfTimePoints);
+    solutionMatrices[0] = U;
+
+    Eigen::MatrixXd b((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd previousTimestepVector((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd nextTimestep((N_x - 1) * (N_y - 1), 1);
+
     // FTCS
     // PDE: u_t = u_xx + u_yy
 
-    Eigen::MatrixXd b((N_x - 1) * (N_y - 1), 1);
-    Eigen::MatrixXd previousTimestep((N_x - 1) * (N_y - 1), 1);
-    Eigen::MatrixXd nextTimestep((N_x - 1) * (N_y - 1), 1);
-    b.setZero();
-    previousTimestep.setZero();
-    nextTimestep.setZero();
-
-    for(int i = 1; i < U.rows() - 1; i++)
+    for(int n = 1; n < noOfTimePoints; n++)
     {
-        for(int j = 1; j < U.cols() - 1; j++)
+
+        // Set the BCs for the solution matrix of the next timestep
+
+        // x boundaries
+        for(int k = 0; k < V.rows(); k++)
         {
-            previousTimestep((i-1) * (U.cols() - 2) + (j-1), 0) = U(i, j);
+            V(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
+            V(k, V.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
         }
-    }
 
-    // Putting the appropriate boundary points into the vector b
-
-    for(int i = 1; i < U.rows() - 1; i++)
-    {
-        for(int j = 1; j < U.cols() - 1; j++)
+        // y boundaries
+        for(int j = 0; j < V.cols(); j++)
         {
-            if(i - 1 == 0)
-            {
-                b((i-1) * (U.cols() - 2) + (j-1), 0) += r * U(i-1, j);
-            }
-            else if(i + 1 == N_y)
-            {
-                b((i-1) * (U.cols() - 2) + (j-1), 0) += r * U(i+1, j);
-            }
+            V(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
+            V(V.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+        }
 
-            if(j - 1 == 0)
+        // Grab the previous timestep's solution matrix for convenience
+        Eigen::MatrixXd previousTimestepMatrix = solutionMatrices[n-1];
+
+        b.setZero();
+        previousTimestepVector.setZero();
+        nextTimestep.setZero();
+
+        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
+        {
+            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
             {
-                b((i-1) * (U.cols() - 2) + (j-1), 0) += q * U(i, j-1);
-            }
-            else if(j + 1 == N_x)
-            {
-                b((i-1) * (U.cols() - 2) + (j-1), 0) += q * U(i, j+1);
+                previousTimestepVector((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) = previousTimestepMatrix(i, j);
             }
         }
-    }
 
-    nextTimestep = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestep + b;
+        // Putting the appropriate boundary points into the vector b
 
-    // Copy info from nextTimestep into V
-
-    for(int i = 1; i < U.rows() - 1; i++)
-    {
-        for(int j = 1; j < U.cols() - 1; j++)
+        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
         {
-            V(i, j) = nextTimestep((i-1) * (V.cols() - 2) + (j-1), 0);
+            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
+            {
+                if(i - 1 == 0)
+                {
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i-1, j);
+                }
+                else if(i + 1 == N_y)
+                {
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i+1, j);
+                }
+
+                if(j - 1 == 0)
+                {
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j-1);
+                }
+                else if(j + 1 == N_x)
+                {
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j+1);
+                }
+            }
         }
+
+        nextTimestep = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
+
+        // Copy info from nextTimestep into V
+
+        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
+        {
+            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
+            {
+                V(i, j) = nextTimestep((i-1) * (V.cols() - 2) + (j-1), 0);
+            }
+        }
+
+        // Put V into the vector of solution matrices
+
+        solutionMatrices[n] = V;
+
+        // Reset V in preparation for the next timestep
+
+        V.setZero();
+
     }
 
 }
