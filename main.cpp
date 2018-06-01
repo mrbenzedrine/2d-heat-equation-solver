@@ -6,7 +6,7 @@
 
 int main()
 {
-    
+
     int N_x = 4;
     int N_y = 4;
     double dx = 1.0/N_x;
@@ -57,15 +57,15 @@ int main()
     // y boundaries
     for(int j = 1; j < U.cols() - 1; j++)
     {
-        U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
-        U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+        U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+        U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
     }
 
     // x boundaries
     for(int k = 0; k < U.rows(); k++)
     {
-        U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
-        U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
+        U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+        U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
     }
 
     // Define submatrices that will form the block matrices in the method equation
@@ -135,15 +135,15 @@ int main()
         // y boundaries
         for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
         {
-            nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0));
-            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0));
+            nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
         }
 
         // x boundaries
         for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0));
-            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0));
+            nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
         }
 
         // Grab the previous timestep's solution matrix for convenience
