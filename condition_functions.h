@@ -22,3 +22,23 @@ double y_upper_dirichlet_bc_func(double x, double t)
 {
     return 0.0;
 }
+
+double x_lhs_neumann_bc_func(double y, double t)
+{
+    return 0.0;
+}
+
+double x_rhs_neumann_bc_func(double y, double t)
+{
+    return 0.0;
+}
+
+double y_lower_neumann_bc_func(double x, double t)
+{
+    return 0.0;
+}
+
+double y_upper_neumann_bc_func(double x, double t)
+{
+    return 0.0;
+}
