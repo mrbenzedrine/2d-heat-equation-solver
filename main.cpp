@@ -1,11 +1,18 @@
 #include <iostream>
 #include <eigen3/Eigen/Eigen>
 #include <vector>
+#include <string>
 
 #include "condition_functions.h"
 
-int main()
+int main(int argc, char* argv[])
 {
+
+    // argument 1: type of boundary condition for x boundaries
+    // argument 2: type of boundary condition for y boundaries
+
+    std::string xBCType = argv[1];
+    std::string yBCType = argv[2];
 
     int N_x = 4;
     int N_y = 4;
@@ -55,17 +62,23 @@ int main()
     // BCs
 
     // y boundaries
-    for(int j = 1; j < U.cols() - 1; j++)
+    if(yBCType == "dirichlet")
     {
-        U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
-        U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+        for(int j = 1; j < U.cols() - 1; j++)
+        {
+            U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+            U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+        }
     }
 
     // x boundaries
-    for(int k = 0; k < U.rows(); k++)
+    if(xBCType == "dirichlet")
     {
-        U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
-        U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+        for(int k = 0; k < U.rows(); k++)
+        {
+            U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+            U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+        }
     }
 
     // Define submatrices that will form the block matrices in the method equation
@@ -133,17 +146,23 @@ int main()
         // Set the BCs for the solution matrix of the next timestep
 
         // y boundaries
-        for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
+        if(yBCType == "dirichlet")
         {
-            nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
-            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+            for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
+            {
+                nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+            }
         }
 
         // x boundaries
-        for(int k = 0; k < nextTimestepMatrix.rows(); k++)
+        if(xBCType == "dirichlet")
         {
-            nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
-            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+            for(int k = 0; k < nextTimestepMatrix.rows(); k++)
+            {
+                nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+            }
         }
 
         // Grab the previous timestep's solution matrix for convenience
@@ -206,6 +225,24 @@ int main()
         // Reset nextTimestepMatrix in preparation for the next timestep
 
         nextTimestepMatrix.setZero();
+
+        if(yBCType == "neumann")
+        {
+            for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
+            {
+                nextTimestepMatrix(0, j) = nextTimestepMatrix(1, j) - dy * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                nextTimestepMatrix(N_y, j) = nextTimestepMatrix(N_y - 1, j) + dy * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+            }
+        }
+
+        if(xBCType == "neumann")
+        {
+            for(int k = 0; k < nextTimestepMatrix.rows(); k++)
+            {
+                nextTimestepMatrix(k, 0) = nextTimestepMatrix(k, 1) - dx * x_lhs_neumann_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+                nextTimestepMatrix(k, N_x) = nextTimestepMatrix(k, N_x - 1) + dx * x_rhs_neumann_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+            }
+        }
 
     }
 
