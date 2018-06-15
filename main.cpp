@@ -14,6 +14,13 @@ int main(int argc, char* argv[])
     std::string xBCType = argv[1];
     std::string yBCType = argv[2];
 
+    std::string neumannBCScheme;
+
+    if(xBCType == "neumann" || yBCType == "neumann")
+    {
+        neumannBCScheme = argv[3];
+    }
+
     int N_x = 4;
     int N_y = 4;
     double dx = 1.0/N_x;
@@ -60,20 +67,47 @@ int main(int argc, char* argv[])
     }
 
     // BCs
+    // The application of Dirichlet BCs differs depending on the combination of BC types
+    // and also the scheme used to solve for Neumann BCs
 
-    // y boundaries
-    if(yBCType == "dirichlet")
+    if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
     {
-        for(int j = 1; j < U.cols() - 1; j++)
+
+        // y boundaries
+        if(yBCType == "dirichlet")
+        {
+            for(int j = 1; j < U.cols() - 1; j++)
+            {
+                U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+                U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+            }
+        }
+
+        // x boundaries
+        if(xBCType == "dirichlet")
+        {
+            for(int k = 0; k < U.rows(); k++)
+            {
+                U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+                U(k, U.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+            }
+        }
+
+    }
+
+    if(yBCType == "dirichlet" && xBCType == "neumann" && neumannBCScheme == "ghost")
+    {
+        // y boundaries
+        for(int j = 0; j < U.cols(); j++)
         {
             U(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
             U(U.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
         }
     }
 
-    // x boundaries
-    if(xBCType == "dirichlet")
+    if(xBCType == "dirichlet" && yBCType == "neumann" && neumannBCScheme == "ghost")
     {
+        // x boundaries
         for(int k = 0; k < U.rows(); k++)
         {
             U(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
@@ -83,10 +117,38 @@ int main(int argc, char* argv[])
 
     // Define submatrices that will form the block matrices in the method equation
 
-    Eigen::internal::BandMatrix<double> D_x(N_x - 1, N_x - 1, 1, 1);
-    Eigen::internal::BandMatrix<double> D_y(N_y - 1, N_y - 1, 1, 1);
-    Eigen::MatrixXd I_x = Eigen::MatrixXd::Identity(N_x - 1, N_x - 1);
-    Eigen::MatrixXd I_y = Eigen::MatrixXd::Identity(N_y - 1, N_y - 1);
+    int xMatricesDim, yMatricesDim;
+
+    if(xBCType == "dirichlet" && yBCType == "dirichlet")
+    {
+        xMatricesDim = N_x - 1;
+        yMatricesDim = N_y - 1;
+    }
+    else if(neumannBCScheme == "onesided")
+    {
+        xMatricesDim = N_x - 1;
+        yMatricesDim = N_y - 1;
+    }
+    else if(xBCType == "neumann" && yBCType == "dirichlet" && neumannBCScheme == "ghost")
+    {
+        xMatricesDim = N_x + 1;
+        yMatricesDim = N_y - 1;
+    }
+    else if(xBCType == "dirichlet" && yBCType == "neumann" && neumannBCScheme == "ghost")
+    {
+        xMatricesDim = N_x - 1;
+        yMatricesDim = N_y + 1;
+    }
+    else if(xBCType == "neumann" && yBCType == "neumann" && neumannBCScheme == "ghost")
+    {
+        xMatricesDim = N_x + 1;
+        yMatricesDim = N_y + 1;
+    }
+
+    Eigen::internal::BandMatrix<double> D_x(xMatricesDim, xMatricesDim, 1, 1);
+    Eigen::internal::BandMatrix<double> D_y(yMatricesDim, yMatricesDim, 1, 1);
+    Eigen::MatrixXd I_x = Eigen::MatrixXd::Identity(xMatricesDim, xMatricesDim);
+    Eigen::MatrixXd I_y = Eigen::MatrixXd::Identity(yMatricesDim, yMatricesDim);
 
     for(int i = -D_x.subs(); i <= D_x.supers(); i++)
     {
@@ -106,6 +168,18 @@ int main(int argc, char* argv[])
     D_y.diagonal(0).setConstant(-2.0 * r);
     D_y.diagonal(-1).setConstant(1.0 * r);
     D_y.diagonal(1).setConstant(1.0 * r);
+
+    if(xBCType == "neumann" && neumannBCScheme == "ghost")
+    {
+        D_x.diagonal(1)(0) = 2 * q;
+        D_x.diagonal(-1)(xMatricesDim - 2) = 2 * q;
+    }
+
+    if(yBCType == "neumann" && neumannBCScheme == "ghost")
+    {
+        D_y.diagonal(1)(0) = 2 * r;
+        D_y.diagonal(-1)(yMatricesDim - 2) = 2 * r;
+    }
 
     // Define Kronecker product matrices
 
@@ -133,9 +207,77 @@ int main(int argc, char* argv[])
     std::vector<Eigen::MatrixXd> solutionMatrices(noOfTimePoints);
     solutionMatrices[0] = U;
 
-    Eigen::MatrixXd b((N_x - 1) * (N_y - 1), 1);
-    Eigen::MatrixXd previousTimestepVector((N_x - 1) * (N_y - 1), 1);
-    Eigen::MatrixXd nextTimestepVector((N_x - 1) * (N_y - 1), 1);
+    Eigen::MatrixXd b((xMatricesDim) * (yMatricesDim), 1);
+    Eigen::MatrixXd previousTimestepVector((xMatricesDim) * (yMatricesDim), 1);
+    Eigen::MatrixXd nextTimestepVector((xMatricesDim) * (yMatricesDim), 1);
+
+    int xLowerBound, xUpperBound, yLowerBound, yUpperBound;
+
+    // Inclusive lower bound
+    if(xBCType == "dirichlet")
+    {
+        xLowerBound = 1;
+    }
+    else if(xBCType == "neumann")
+    {
+        if(neumannBCScheme == "onesided")
+        {
+            xLowerBound = 1;
+        }
+        else if(neumannBCScheme == "ghost")
+        {
+            xLowerBound = 0;
+        }
+    }
+
+    if(yBCType == "dirichlet")
+    {
+        yLowerBound = 1;
+    }
+    else if(yBCType == "neumann")
+    {
+        if(neumannBCScheme == "onesided")
+        {
+            yLowerBound = 1;
+        }
+        else if(neumannBCScheme == "ghost")
+        {
+            yLowerBound = 0;
+        }
+    }
+
+    // Exclusive upper bound
+    if(xBCType == "dirichlet")
+    {
+        xUpperBound = N_x - 1;
+    }
+    else if(xBCType == "neumann")
+    {
+        if(neumannBCScheme == "onesided")
+        {
+            xUpperBound = N_x;
+        }
+        else if(neumannBCScheme == "ghost")
+        {
+            xUpperBound = N_x + 1;
+        }
+    }
+
+    if(yBCType == "dirichlet")
+    {
+        yUpperBound = N_y - 1;
+    }
+    else if(yBCType == "neumann")
+    {
+        if(neumannBCScheme == "onesided")
+        {
+            yUpperBound = N_y;
+        }
+        else if(neumannBCScheme == "ghost")
+        {
+            yUpperBound = N_y + 1;
+        }
+    }
 
     // FTCS
     // PDE: u_t = u_xx + u_yy
@@ -145,19 +287,44 @@ int main(int argc, char* argv[])
 
         // Set the BCs for the solution matrix of the next timestep
 
-        // y boundaries
-        if(yBCType == "dirichlet")
+        if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
         {
-            for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
+
+            // y boundaries
+            if(yBCType == "dirichlet")
+            {
+                for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
+                {
+                    nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                    nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                }
+            }
+
+            // x boundaries
+            if(xBCType == "dirichlet")
+            {
+                for(int k = 0; k < nextTimestepMatrix.rows(); k++)
+                {
+                    nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+                    nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
+                }
+            }
+
+        }
+
+        if(yBCType == "dirichlet" && xBCType == "neumann" && neumannBCScheme == "ghost")
+        {
+            // y boundaries
+            for(int j = 0; j < nextTimestepMatrix.cols(); j++)
             {
                 nextTimestepMatrix(0, j) = y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                 nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
             }
         }
 
-        // x boundaries
-        if(xBCType == "dirichlet")
+        if(xBCType == "dirichlet" && yBCType == "neumann" && neumannBCScheme == "ghost")
         {
+            // x boundaries
             for(int k = 0; k < nextTimestepMatrix.rows(); k++)
             {
                 nextTimestepMatrix(k, 0) = x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
@@ -172,49 +339,161 @@ int main(int argc, char* argv[])
         previousTimestepVector.setZero();
         nextTimestepVector.setZero();
 
-        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
+        for(int i = 0; i < yMatricesDim; i++)
         {
-            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
+            for(int j = 0; j < xMatricesDim; j++)
             {
-                previousTimestepVector((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) = previousTimestepMatrix(i, j);
+                previousTimestepVector(xMatricesDim * i + j, 0) = previousTimestepMatrix(i + yLowerBound, j + xLowerBound);
             }
         }
 
         // Putting the appropriate boundary points into the vector b
-
-        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
+        if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
         {
-            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
+            for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
             {
-                if(i - 1 == 0)
+                for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
                 {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i-1, j);
-                }
-                else if(i + 1 == N_y)
-                {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i+1, j);
-                }
+                    if(i - 1 == 0)
+                    {
+                        b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i-1, j);
+                    }
+                    else if(i + 1 == N_y)
+                    {
+                        b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i+1, j);
+                    }
 
-                if(j - 1 == 0)
-                {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j-1);
-                }
-                else if(j + 1 == N_x)
-                {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j+1);
+                    if(j - 1 == 0)
+                    {
+                        b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j-1);
+                    }
+                    else if(j + 1 == N_x)
+                    {
+                        b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j+1);
+                    }
                 }
             }
         }
 
-        nextTimestepVector = (Eigen::MatrixXd::Identity((N_x - 1) * (N_y - 1), (N_x - 1) * (N_y - 1)) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
+        // If there are Neumann BCs to be solved using ghost points, need to put additional terms
+        // in the vector b
+
+        if(yBCType == "dirichlet" && xBCType == "neumann" && neumannBCScheme == "ghost")
+        {
+            for(int i = yLowerBound; i < yUpperBound + 1; i++)
+            {
+                for(int j = xLowerBound; j < xUpperBound + 1; j++)
+                {
+                    if(j == xLowerBound && i == yLowerBound)
+                    {
+                        b(0, 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(0, 0) += q * previousTimestepMatrix(0, 0);
+                    }
+                    else if(j == xLowerBound && i > yLowerBound && i < yUpperBound)
+                    {
+                        b(xMatricesDim * (i - yLowerBound), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                    }
+                    else if(j == xLowerBound && i == yUpperBound)
+                    {
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += q * previousTimestepMatrix(N_y, 0);
+                    }
+
+                    if(j == xUpperBound && i == yLowerBound)
+                    {
+                        b(xMatricesDim - 1, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim - 1, 0) += q * previousTimestepMatrix(0, xMatricesDim - 1);
+                    }
+                    else if(j == xUpperBound && i > yLowerBound && i < yUpperBound)
+                    {
+                        b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                    }
+                    else if(j == xUpperBound && i == yUpperBound)
+                    {
+                        b(xMatricesDim * yMatricesDim - 1, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * yMatricesDim - 1, 0) += q * previousTimestepMatrix(N_y, N_x);
+                    }
+
+                }
+            }
+        }
+
+        if(xBCType == "dirichlet" && yBCType == "neumann" && neumannBCScheme == "ghost")
+        {
+            for(int i = yLowerBound; i < yUpperBound + 1; i++)
+            {
+                for(int j = xLowerBound; j < xUpperBound + 1; j++)
+                {
+                    if(i == yLowerBound && j == xLowerBound)
+                    {
+                        b(0, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(0, 0) += r * previousTimestepMatrix(0, 0);
+                    }
+                    else if(i == yLowerBound && j > xLowerBound && j < xUpperBound)
+                    {
+                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                    }
+                    else if(i == yLowerBound && j == xUpperBound)
+                    {
+                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(j - xLowerBound, 0) += r * previousTimestepMatrix(0, N_x);
+                    }
+
+                    if(i == yUpperBound && j == xLowerBound)
+                    {
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += r * previousTimestepMatrix(N_y, 0);
+                    }
+                    else if(i == yUpperBound && j > xLowerBound && j < xUpperBound)
+                    {
+                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                    }
+                    else if(i == yUpperBound && j == xUpperBound)
+                    {
+                        b(xMatricesDim * yMatricesDim - 1, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * yMatricesDim - 1, 0) += r * previousTimestepMatrix(N_y, N_x);
+                    }
+
+                }
+            }
+        }
+
+        if(xBCType == "neumann" && yBCType == "neumann" && neumannBCScheme == "ghost")
+        {
+            for(int i = yLowerBound; i < yUpperBound ; i++)
+            {
+                for(int j = xLowerBound; j < xUpperBound; j++)
+                {
+                    if(j == xLowerBound)
+                    {
+                        b(xMatricesDim * (i - yLowerBound), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                    }
+                    else if(j == xUpperBound - 1)
+                    {
+                        b(xMatricesDim * (i - yLowerBound) + j, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                    }
+
+                    if(i == yLowerBound)
+                    {
+                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                    }
+                    else if(i == yUpperBound - 1)
+                    {
+                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                    }
+                }
+            }
+        }
+
+        nextTimestepVector = (Eigen::MatrixXd::Identity(xMatricesDim * yMatricesDim, xMatricesDim * yMatricesDim) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
 
         // Copy info from nextTimestepVector into nextTimestepMatrix
 
-        for(int i = 1; i < previousTimestepMatrix.rows() - 1; i++)
+        for(int i = 0; i < yMatricesDim; i++)
         {
-            for(int j = 1; j < previousTimestepMatrix.cols() - 1; j++)
+            for(int j = 0; j < xMatricesDim; j++)
             {
-                nextTimestepMatrix(i, j) = nextTimestepVector((i-1) * (nextTimestepMatrix.cols() - 2) + (j-1), 0);
+                nextTimestepMatrix(i + yLowerBound, j + xLowerBound) = nextTimestepVector(xMatricesDim * i + j, 0);
             }
         }
 
@@ -226,7 +505,7 @@ int main(int argc, char* argv[])
 
         nextTimestepMatrix.setZero();
 
-        if(yBCType == "neumann")
+        if(yBCType == "neumann" && neumannBCScheme == "onesided")
         {
             for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
             {
@@ -235,7 +514,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        if(xBCType == "neumann")
+        if(xBCType == "neumann" && neumannBCScheme == "onesided")
         {
             for(int k = 0; k < nextTimestepMatrix.rows(); k++)
             {
