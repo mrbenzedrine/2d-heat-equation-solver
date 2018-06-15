@@ -386,31 +386,31 @@ int main(int argc, char* argv[])
                 {
                     if(j == xLowerBound && i == yLowerBound)
                     {
-                        b(0, 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(0, 0) += -2 * (dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                         b(0, 0) += q * previousTimestepMatrix(0, 0);
                     }
                     else if(j == xLowerBound && i > yLowerBound && i < yUpperBound)
                     {
-                        b(xMatricesDim * (i - yLowerBound), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                     }
                     else if(j == xLowerBound && i == yUpperBound)
                     {
-                        b(xMatricesDim * (yMatricesDim - 1), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += -2 * (dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                         b(xMatricesDim * (yMatricesDim - 1), 0) += q * previousTimestepMatrix(N_y, 0);
                     }
 
                     if(j == xUpperBound && i == yLowerBound)
                     {
-                        b(xMatricesDim - 1, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim - 1, 0) += 2 * (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                         b(xMatricesDim - 1, 0) += q * previousTimestepMatrix(0, xMatricesDim - 1);
                     }
                     else if(j == xUpperBound && i > yLowerBound && i < yUpperBound)
                     {
-                        b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += 2 * (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                     }
                     else if(j == xUpperBound && i == yUpperBound)
                     {
-                        b(xMatricesDim * yMatricesDim - 1, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                         b(xMatricesDim * yMatricesDim - 1, 0) += q * previousTimestepMatrix(N_y, N_x);
                     }
 
@@ -426,31 +426,31 @@ int main(int argc, char* argv[])
                 {
                     if(i == yLowerBound && j == xLowerBound)
                     {
-                        b(0, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(0, 0) += -2 * (dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                         b(0, 0) += r * previousTimestepMatrix(0, 0);
                     }
                     else if(i == yLowerBound && j > xLowerBound && j < xUpperBound)
                     {
-                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(j - xLowerBound, 0) += -2 * (dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                     }
                     else if(i == yLowerBound && j == xUpperBound)
                     {
-                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(j - xLowerBound, 0) += -2 * (dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                         b(j - xLowerBound, 0) += r * previousTimestepMatrix(0, N_x);
                     }
 
                     if(i == yUpperBound && j == xLowerBound)
                     {
-                        b(xMatricesDim * (yMatricesDim - 1), 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1), 0) += 2 * (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                         b(xMatricesDim * (yMatricesDim - 1), 0) += r * previousTimestepMatrix(N_y, 0);
                     }
                     else if(i == yUpperBound && j > xLowerBound && j < xUpperBound)
                     {
-                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                     }
                     else if(i == yUpperBound && j == xUpperBound)
                     {
-                        b(xMatricesDim * yMatricesDim - 1, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                         b(xMatricesDim * yMatricesDim - 1, 0) += r * previousTimestepMatrix(N_y, N_x);
                     }
 
@@ -466,20 +466,20 @@ int main(int argc, char* argv[])
                 {
                     if(j == xLowerBound)
                     {
-                        b(xMatricesDim * (i - yLowerBound), 0) += -(dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                     }
                     else if(j == xUpperBound - 1)
                     {
-                        b(xMatricesDim * (i - yLowerBound) + j, 0) += (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
+                        b(xMatricesDim * (i - yLowerBound) + j, 0) += 2 * (dt/dx) * x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(n, 0));
                     }
 
                     if(i == yLowerBound)
                     {
-                        b(j - xLowerBound, 0) += -(dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(j - xLowerBound, 0) += -2 * (dt/dy) * y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                     }
                     else if(i == yUpperBound - 1)
                     {
-                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
+                        b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(n, 0));
                     }
                 }
             }
