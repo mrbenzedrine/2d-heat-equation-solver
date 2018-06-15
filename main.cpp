@@ -497,14 +497,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        // Put nextTimestepMatrix into the vector of solution matrices
-
-        solutionMatrices[n] = nextTimestepMatrix;
-
-        // Reset nextTimestepMatrix in preparation for the next timestep
-
-        nextTimestepMatrix.setZero();
-
         if(yBCType == "neumann" && neumannBCScheme == "onesided")
         {
             for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
@@ -522,6 +514,14 @@ int main(int argc, char* argv[])
                 nextTimestepMatrix(k, N_x) = nextTimestepMatrix(k, N_x - 1) + dx * x_rhs_neumann_bc_func(ySpacePoints(k, 0), timePoints(n, 0));
             }
         }
+
+        // Put nextTimestepMatrix into the vector of solution matrices
+
+        solutionMatrices[n] = nextTimestepMatrix;
+
+        // Reset nextTimestepMatrix in preparation for the next timestep
+
+        nextTimestepMatrix.setZero();
 
     }
 
