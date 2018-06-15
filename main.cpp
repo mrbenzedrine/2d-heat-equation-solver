@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
     int N_y = 4;
     double dx = 1.0/N_x;
     double dy = 1.0/N_y;
-    double dt = 0.025;
+    double dt = 0.005;
 
     double startX = 0.0;
     double endX = 1.0;
