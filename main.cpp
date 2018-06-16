@@ -2,6 +2,7 @@
 #include <eigen3/Eigen/Eigen>
 #include <vector>
 #include <string>
+#include <fstream>
 
 #include "condition_functions.h"
 
@@ -522,6 +523,50 @@ int main(int argc, char* argv[])
         // Reset nextTimestepMatrix in preparation for the next timestep
 
         nextTimestepMatrix.setZero();
+
+    }
+
+    // Write data to a file
+
+    std::ofstream dataFile;
+    dataFile.open("data.txt");
+
+    for(int n = 0; n < noOfTimePoints; n++)
+    {
+        for(int i = 0; i < solutionMatrices[n].rows(); i++)
+        {
+            for(int j = 0; j < solutionMatrices[n].cols(); j++)
+            {
+                dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << solutionMatrices[n](i, j) << std::endl;
+            }
+        }
+    }
+
+    dataFile.close();
+
+    FILE* gnuplotPipe = popen("gnuplot -persist", "w");
+
+    if(gnuplotPipe)
+    {
+
+        fprintf(gnuplotPipe, "reset\n");
+        fprintf(gnuplotPipe, "set title '2D Heat Equation'\n");
+        fprintf(gnuplotPipe, "set xlabel 'x'\n");
+        fprintf(gnuplotPipe, "set ylabel 'y'\n");
+        fprintf(gnuplotPipe, "set zlabel 'U'\n");
+        fprintf(gnuplotPipe, "set dgrid3d 30,30\n");
+
+        // Animated plot of solution over time
+        fprintf(gnuplotPipe, "noOfTimePoints = %d\n", noOfTimePoints);
+        fprintf(gnuplotPipe, "noOfXPoints = %d\n", N_x+1);
+        fprintf(gnuplotPipe, "noOfYPoints = %d\n", N_y+1);
+        fprintf(gnuplotPipe, "set xrange [0:1]\nset yrange [0:1]\nset zrange [0:1.5]\n");
+        fprintf(gnuplotPipe, "unset key\n");
+
+        fprintf(gnuplotPipe, "do for [n=0:noOfTimePoints-1]{set title 'timestep '.n\nsplot 'data.txt' every ::n*noOfXPoints*noOfYPoints::((n+1)*noOfXPoints*noOfYPoints-1) with lines lc rgb 'purple'\npause 0.1}\n");
+
+        fflush(gnuplotPipe);
+        pclose(gnuplotPipe);
 
     }
 
