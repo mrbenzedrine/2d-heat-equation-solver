@@ -1,39 +1,61 @@
-#include <iostream>
-#include <eigen3/Eigen/Eigen>
-#include <vector>
-#include <string>
-#include <fstream>
+#include "PDESolver.h"
 
-#include "condition_functions.h"
-
-int main(int argc, char* argv[])
+PDESolver::PDESolver(
+        int N_x,
+        int N_y,
+        double dt,
+        double startX,
+        double endX,
+        double startY,
+        double endY,
+        double startT,
+        double endT,
+        std::string xBCType,
+        std::string yBCType
+):N_x(N_x), N_y(N_y), dx(1.0/N_x), dy(1.0/N_y), dt(dt),
+    startX(startX), endX(endX),
+    startY(startY), endY(endY),
+    startT(startT), endT(endT),
+    xBCType(xBCType), yBCType(yBCType)
 {
+    initialise_vectors_matrices();
+    perform_mathematical_routines();
+}
 
-    // argument 1: type of boundary condition for x boundaries
-    // argument 2: type of boundary condition for y boundaries
+PDESolver::PDESolver(
+        int N_x,
+        int N_y,
+        double dt,
+        double startX,
+        double endX,
+        double startY,
+        double endY,
+        double startT,
+        double endT,
+        std::string xBCType,
+        std::string yBCType,
+        std::string neumannBCScheme
+):N_x(N_x), N_y(N_y), dx(1.0/N_x), dy(1.0/N_y), dt(dt),
+    startX(startX), endX(endX),
+    startY(startY), endY(endY),
+    startT(startT), endT(endT),
+    xBCType(xBCType), yBCType(yBCType),
+    neumannBCScheme(neumannBCScheme)
+{
+    initialise_vectors_matrices();
+    perform_mathematical_routines();
+}
 
-    std::string xBCType = argv[1];
-    std::string yBCType = argv[2];
+void PDESolver::initialise_vectors_matrices()
+{
+    create_discretisation_vectors();
+    create_solution_matrices();
+}
 
-    std::string neumannBCScheme;
-
-    if(xBCType == "neumann" || yBCType == "neumann")
-    {
-        neumannBCScheme = argv[3];
-    }
-
-    int N_x = 4;
-    int N_y = 4;
-    double dx = 1.0/N_x;
-    double dy = 1.0/N_y;
-    double dt = 0.005;
-
-    double startX = 0.0;
-    double endX = 1.0;
-    double startY = 0.0;
-    double endY = 1.0;
-    double startT = 0.0;
-    double endT = 1.0/2.0;
+void PDESolver::create_discretisation_vectors()
+{
+    xSpacePoints = Eigen::VectorXd::LinSpaced(N_x + 1, startX, endX);
+    ySpacePoints = Eigen::VectorXd::LinSpaced(N_y + 1, startY, endY);
 
     int noOfTimePoints = 0;
     double timeCounter = 0.0;
@@ -44,21 +66,28 @@ int main(int argc, char* argv[])
         noOfTimePoints++;
     }
 
-    Eigen::VectorXd xSpacePoints, ySpacePoints, timePoints;
-    xSpacePoints = Eigen::VectorXd::LinSpaced(N_x + 1, startX, endX);
-    ySpacePoints = Eigen::VectorXd::LinSpaced(N_y + 1, startY, endY);
     timePoints = Eigen::VectorXd::LinSpaced(noOfTimePoints, startT, endT);
+}
 
-    // Solution matrix for the 0th timestep
-    Eigen::MatrixXd U(ySpacePoints.size(), xSpacePoints.size());
+void PDESolver::create_solution_matrices()
+{
+    U = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
     U.setZero();
-
-    // Solution matrix for the next timestep
-    Eigen::MatrixXd nextTimestepMatrix(ySpacePoints.size(), xSpacePoints.size());
+    nextTimestepMatrix = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
     nextTimestepMatrix.setZero();
+    solutionMatrices = std::vector<Eigen::MatrixXd>(timePoints.size());
+}
 
+void PDESolver::perform_mathematical_routines()
+{
+    apply_prelim_ic_bcs();
+    create_kronecker_product_matrices();
+    solve_pde();
+}
+
+void PDESolver::apply_prelim_ic_bcs()
+{
     // IC
-
     for(int k = 0; k < U.rows(); k++)
     {
         for(int j = 0; j < U.cols(); j++)
@@ -116,10 +145,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Define submatrices that will form the block matrices in the method equation
+    solutionMatrices[0] = U;
+}
 
-    int xMatricesDim, yMatricesDim;
-
+void PDESolver::create_kronecker_product_matrices()
+{
     if(xBCType == "dirichlet" && yBCType == "dirichlet")
     {
         xMatricesDim = N_x - 1;
@@ -184,8 +214,8 @@ int main(int argc, char* argv[])
 
     // Define Kronecker product matrices
 
-    Eigen::MatrixXd kroneckerProdMatrixA(I_y.rows() * D_x.rows(), I_y.cols() * D_x.cols());
-    Eigen::MatrixXd kroneckerProdMatrixB(D_y.rows() * I_x.rows(), D_y.cols() * I_x.cols());
+    kroneckerProdMatrixA = Eigen::MatrixXd(I_y.rows() * D_x.rows(), I_y.cols() * D_x.cols());
+    kroneckerProdMatrixB = Eigen::MatrixXd(D_y.rows() * I_x.rows(), D_y.cols() * I_x.cols());
 
     for(int i = 0; i < I_y.rows(); i++)
     {
@@ -202,12 +232,10 @@ int main(int argc, char* argv[])
             kroneckerProdMatrixB.block(i * I_x.rows(), j * I_x.cols(), I_x.rows(), I_x.cols()) = D_y.toDenseMatrix()(i, j) * I_x;
         }
     }
+}
 
-    // Create vector that will contain the solution matrices for all timesteps
-
-    std::vector<Eigen::MatrixXd> solutionMatrices(noOfTimePoints);
-    solutionMatrices[0] = U;
-
+void PDESolver::solve_pde()
+{
     Eigen::MatrixXd b((xMatricesDim) * (yMatricesDim), 1);
     Eigen::MatrixXd previousTimestepVector((xMatricesDim) * (yMatricesDim), 1);
     Eigen::MatrixXd nextTimestepVector((xMatricesDim) * (yMatricesDim), 1);
@@ -283,7 +311,7 @@ int main(int argc, char* argv[])
     // FTCS
     // PDE: u_t = u_xx + u_yy
 
-    for(int n = 1; n < noOfTimePoints; n++)
+    for(int n = 1; n < timePoints.size(); n++)
     {
 
         // Set the BCs for the solution matrix of the next timestep
@@ -347,6 +375,9 @@ int main(int argc, char* argv[])
                 previousTimestepVector(xMatricesDim * i + j, 0) = previousTimestepMatrix(i + yLowerBound, j + xLowerBound);
             }
         }
+
+        double q = dt/pow(dx, 2.0);
+        double r = dt/pow(dy, 2.0);
 
         // Putting the appropriate boundary points into the vector b
         if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
@@ -525,13 +556,14 @@ int main(int argc, char* argv[])
         nextTimestepMatrix.setZero();
 
     }
+}
 
-    // Write data to a file
-
+void PDESolver::create_data_file(std::string filename)
+{
     std::ofstream dataFile;
-    dataFile.open("data.txt");
+    dataFile.open(filename);
 
-    for(int n = 0; n < noOfTimePoints; n++)
+    for(int n = 0; n < timePoints.size(); n++)
     {
         for(int i = 0; i < solutionMatrices[n].rows(); i++)
         {
@@ -543,7 +575,10 @@ int main(int argc, char* argv[])
     }
 
     dataFile.close();
+}
 
+void PDESolver::plot_solution(std::string filename)
+{
     FILE* gnuplotPipe = popen("gnuplot -persist", "w");
 
     if(gnuplotPipe)
@@ -557,17 +592,16 @@ int main(int argc, char* argv[])
         fprintf(gnuplotPipe, "set dgrid3d 30,30\n");
 
         // Animated plot of solution over time
-        fprintf(gnuplotPipe, "noOfTimePoints = %d\n", noOfTimePoints);
+        fprintf(gnuplotPipe, "noOfTimePoints = %ld\n", timePoints.size());
         fprintf(gnuplotPipe, "noOfXPoints = %d\n", N_x+1);
         fprintf(gnuplotPipe, "noOfYPoints = %d\n", N_y+1);
         fprintf(gnuplotPipe, "set xrange [0:1]\nset yrange [0:1]\nset zrange [0:1.5]\n");
         fprintf(gnuplotPipe, "unset key\n");
 
-        fprintf(gnuplotPipe, "do for [n=0:noOfTimePoints-1]{set title 'timestep '.n\nsplot 'data.txt' every ::n*noOfXPoints*noOfYPoints::((n+1)*noOfXPoints*noOfYPoints-1) with lines lc rgb 'purple'\npause 0.1}\n");
+        fprintf(gnuplotPipe, "do for [n=0:noOfTimePoints-1]{set title 'timestep '.n\nsplot \"%s\" every ::n*noOfXPoints*noOfYPoints::((n+1)*noOfXPoints*noOfYPoints-1) with lines lc rgb 'purple'\npause 0.1}\n", filename.c_str());
 
         fflush(gnuplotPipe);
         pclose(gnuplotPipe);
 
     }
-
 }
