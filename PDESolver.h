@@ -7,7 +7,18 @@
 #include <string>
 #include <fstream>
 
-#include "condition_functions.h"
+struct PDEConditionFunctions
+{
+    double ((*ic_func)(double, double));
+    double ((*x_lhs_dirichlet_bc_func)(double, double));
+    double ((*x_rhs_dirichlet_bc_func)(double, double));
+    double ((*y_lower_dirichlet_bc_func)(double, double));
+    double ((*y_upper_dirichlet_bc_func)(double, double));
+    double ((*x_lhs_neumann_bc_func)(double, double));
+    double ((*x_rhs_neumann_bc_func)(double, double));
+    double ((*y_lower_neumann_bc_func)(double, double));
+    double ((*y_upper_neumann_bc_func)(double, double));
+};
 
 class PDESolver
 {
@@ -23,7 +34,8 @@ class PDESolver
                 double,
                 double,
                 std::string,
-                std::string
+                std::string,
+                PDEConditionFunctions
         );
 
         PDESolver(
@@ -38,7 +50,8 @@ class PDESolver
                 double,
                 std::string,
                 std::string,
-                std::string
+                std::string,
+                PDEConditionFunctions
         );
 
         void initialise_vectors_matrices();
@@ -68,6 +81,7 @@ class PDESolver
         const std::string xBCType;
         const std::string yBCType;
         const std::string neumannBCScheme;
+        PDEConditionFunctions conditionFuncs;
 
         Eigen::VectorXd xSpacePoints;
         Eigen::VectorXd ySpacePoints;
