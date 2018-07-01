@@ -220,24 +220,23 @@ void PDESolver::create_kronecker_product_matrices()
 
     // Define Kronecker product matrices
 
-    kroneckerProdMatrixA = Eigen::MatrixXd(I_y.rows() * D_x.rows(), I_y.cols() * D_x.cols());
-    kroneckerProdMatrixB = Eigen::MatrixXd(D_y.rows() * I_x.rows(), D_y.cols() * I_x.cols());
+    kroneckerProdMatrixA = kronecker_product(I_y, D_x.toDenseMatrix());
+    kroneckerProdMatrixB = kronecker_product(D_y.toDenseMatrix(), I_x);
+}
 
-    for(int i = 0; i < I_y.rows(); i++)
+Eigen::MatrixXd PDESolver::kronecker_product(Eigen::MatrixXd A, Eigen::MatrixXd B)
+{
+    Eigen::MatrixXd kroneckerProduct(A.rows() * B.rows(), A.cols() * B.cols());
+
+    for(int i = 0; i < A.rows(); i++)
     {
-        for(int j = 0; j < I_y.cols(); j++)
+        for(int j = 0; j < A.cols(); j++)
         {
-            kroneckerProdMatrixA.block(i * D_x.rows(), j * D_x.cols(), D_x.rows(), D_x.cols()) = I_y(i, j) * D_x.toDenseMatrix();
+            kroneckerProduct.block(i * B.rows(), j * B.cols(), B.rows(), B.cols()) = A(i, j) * B;
         }
     }
 
-    for(int i = 0; i < D_y.rows(); i++)
-    {
-        for(int j = 0; j < D_y.cols(); j++)
-        {
-            kroneckerProdMatrixB.block(i * I_x.rows(), j * I_x.cols(), I_x.rows(), I_x.cols()) = D_y.toDenseMatrix()(i, j) * I_x;
-        }
-    }
+    return kroneckerProduct;
 }
 
 void PDESolver::solve_pde()

@@ -60,6 +60,7 @@ class PDESolver
         void perform_mathematical_routines();
         void apply_prelim_ic_bcs();
         void create_kronecker_product_matrices();
+        Eigen::MatrixXd kronecker_product(Eigen::MatrixXd, Eigen::MatrixXd);
         void solve_pde();
         void create_data_file(std::string);
         void plot_solution(std::string);
