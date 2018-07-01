@@ -1,7 +1,6 @@
 #ifndef GUARD_PDESolver_h
 #define GUARD_PDESolver_h
 
-#include <iostream>
 #include <eigen3/Eigen/Eigen>
 #include <vector>
 #include <string>
