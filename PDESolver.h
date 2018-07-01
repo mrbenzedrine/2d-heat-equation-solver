@@ -67,8 +67,6 @@ class PDESolver
     private:
         const int N_x;
         const int N_y;
-        const double dx;
-        const double dy;
         const double dt;
 
         const double startX;

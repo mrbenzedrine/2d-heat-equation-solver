@@ -13,7 +13,7 @@ PDESolver::PDESolver(
         std::string xBCType,
         std::string yBCType,
         PDEConditionFunctions conditionFuncs
-):N_x(N_x), N_y(N_y), dx(1.0/N_x), dy(1.0/N_y), dt(dt),
+):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
     startT(startT), endT(endT),
@@ -38,7 +38,7 @@ PDESolver::PDESolver(
         std::string yBCType,
         std::string neumannBCScheme,
         PDEConditionFunctions conditionFuncs
-):N_x(N_x), N_y(N_y), dx(1.0/N_x), dy(1.0/N_y), dt(dt),
+):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
     startT(startT), endT(endT),
@@ -193,6 +193,8 @@ void PDESolver::create_kronecker_product_matrices()
 
     // Define some useful constants
 
+    double dx = 1.0/N_x;
+    double dy = 1.0/N_y;
     double q = dt/pow(dx, 2.0);
     double r = dt/pow(dy, 2.0);
 
@@ -380,6 +382,8 @@ void PDESolver::solve_pde()
             }
         }
 
+        double dx = 1.0/N_x;
+        double dy = 1.0/N_y;
         double q = dt/pow(dx, 2.0);
         double r = dt/pow(dy, 2.0);
 
