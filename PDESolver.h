@@ -58,9 +58,11 @@ class PDESolver
         void create_solution_matrices();
         void perform_mathematical_routines();
         void apply_prelim_ic_bcs();
+        void get_solution_looping_bounds();
         void create_kronecker_product_matrices();
         Eigen::MatrixXd kronecker_product(Eigen::MatrixXd, Eigen::MatrixXd);
         void solve_pde();
+        void solve_next_timestep(int);
         void create_data_file(std::string);
         void plot_solution(std::string);
 
@@ -95,6 +97,11 @@ class PDESolver
         Eigen::MatrixXd kroneckerProdMatrixB;
 
         std::vector<Eigen::MatrixXd> solutionMatrices;
+
+        int xLowerBound;
+        int xUpperBound;
+        int yLowerBound;
+        int yUpperBound;
 };
 
 #endif //GUARD_PDESolver_h
