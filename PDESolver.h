@@ -55,7 +55,7 @@ class PDESolver
 
         void initialise_vectors_matrices();
         void create_discretisation_vectors();
-        void create_solution_matrices();
+        void create_solution_matrix();
         void perform_prelim_mathematical_routines();
         void apply_prelim_ic_bcs();
         void get_solution_looping_bounds();
@@ -87,7 +87,6 @@ class PDESolver
         Eigen::VectorXd ySpacePoints;
         Eigen::VectorXd timePoints;
 
-        Eigen::MatrixXd U;
         Eigen::MatrixXd nextTimestepMatrix;
 
         int xMatricesDim;

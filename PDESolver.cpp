@@ -53,7 +53,7 @@ PDESolver::PDESolver(
 void PDESolver::initialise_vectors_matrices()
 {
     create_discretisation_vectors();
-    create_solution_matrices();
+    create_solution_matrix();
 }
 
 void PDESolver::create_discretisation_vectors()
@@ -73,10 +73,8 @@ void PDESolver::create_discretisation_vectors()
     timePoints = Eigen::VectorXd::LinSpaced(noOfTimePoints, startT, endT);
 }
 
-void PDESolver::create_solution_matrices()
+void PDESolver::create_solution_matrix()
 {
-    U = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
-    U.setZero();
     nextTimestepMatrix = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
     nextTimestepMatrix.setZero();
 }
@@ -91,11 +89,11 @@ void PDESolver::perform_prelim_mathematical_routines()
 void PDESolver::apply_prelim_ic_bcs()
 {
     // IC
-    for(int k = 0; k < U.rows(); k++)
+    for(int k = 0; k < nextTimestepMatrix.rows(); k++)
     {
-        for(int j = 0; j < U.cols(); j++)
+        for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            U(k, j) = conditionFuncs.ic_func(xSpacePoints(j, 0), ySpacePoints(k, 0));
+            nextTimestepMatrix(k, j) = conditionFuncs.ic_func(xSpacePoints(j, 0), ySpacePoints(k, 0));
         }
     }
 
@@ -109,20 +107,20 @@ void PDESolver::apply_prelim_ic_bcs()
         // y boundaries
         if(yBCType == "dirichlet")
         {
-            for(int j = 1; j < U.cols() - 1; j++)
+            for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
             {
-                U(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
-                U(U.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+                nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
             }
         }
 
         // x boundaries
         if(xBCType == "dirichlet")
         {
-            for(int k = 0; k < U.rows(); k++)
+            for(int k = 0; k < nextTimestepMatrix.rows(); k++)
             {
-                U(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
-                U(k, U.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+                nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
             }
         }
 
@@ -131,24 +129,23 @@ void PDESolver::apply_prelim_ic_bcs()
     if(yBCType == "dirichlet" && xBCType == "neumann" && neumannBCScheme == "ghost")
     {
         // y boundaries
-        for(int j = 0; j < U.cols(); j++)
+        for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            U(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
-            U(U.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+            nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
         }
     }
 
     if(xBCType == "dirichlet" && yBCType == "neumann" && neumannBCScheme == "ghost")
     {
         // x boundaries
-        for(int k = 0; k < U.rows(); k++)
+        for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            U(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
-            U(k, U.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+            nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
         }
     }
 
-    nextTimestepMatrix = U;
 }
 
 void PDESolver::create_kronecker_product_matrices()
@@ -557,7 +554,7 @@ void PDESolver::get_solution_data(std::string filename)
     dataFile.open(filename);
 
     // Append the 0th timestep data to file
-    append_next_timestep_data(dataFile, U);
+    append_next_timestep_data(dataFile, nextTimestepMatrix);
 
     // Solve all future timesteps
     for(int n = 1; n < timePoints.size(); n++)
