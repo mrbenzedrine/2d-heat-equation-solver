@@ -21,7 +21,7 @@ PDESolver::PDESolver(
     conditionFuncs(conditionFuncs)
 {
     initialise_vectors_matrices();
-    perform_mathematical_routines();
+    perform_prelim_mathematical_routines();
 }
 
 PDESolver::PDESolver(
@@ -47,7 +47,7 @@ PDESolver::PDESolver(
     conditionFuncs(conditionFuncs)
 {
     initialise_vectors_matrices();
-    perform_mathematical_routines();
+    perform_prelim_mathematical_routines();
 }
 
 void PDESolver::initialise_vectors_matrices()
@@ -79,15 +79,13 @@ void PDESolver::create_solution_matrices()
     U.setZero();
     nextTimestepMatrix = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
     nextTimestepMatrix.setZero();
-    solutionMatrices = std::vector<Eigen::MatrixXd>(timePoints.size());
 }
 
-void PDESolver::perform_mathematical_routines()
+void PDESolver::perform_prelim_mathematical_routines()
 {
     apply_prelim_ic_bcs();
     create_kronecker_product_matrices();
     get_solution_looping_bounds();
-    solve_pde();
 }
 
 void PDESolver::apply_prelim_ic_bcs()
@@ -150,7 +148,7 @@ void PDESolver::apply_prelim_ic_bcs()
         }
     }
 
-    solutionMatrices[0] = U;
+    nextTimestepMatrix = U;
 }
 
 void PDESolver::create_kronecker_product_matrices()
@@ -315,6 +313,10 @@ void PDESolver::solve_next_timestep(int timestep_no)
     Eigen::MatrixXd previousTimestepVector((xMatricesDim) * (yMatricesDim), 1);
     Eigen::MatrixXd nextTimestepVector((xMatricesDim) * (yMatricesDim), 1);
 
+    // Grab the previous timestep's solution matrix
+    Eigen::MatrixXd previousTimestepMatrix = nextTimestepMatrix;
+    nextTimestepMatrix.setZero();
+
     // Set the BCs for the solution matrix of the next timestep
 
     if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
@@ -361,9 +363,6 @@ void PDESolver::solve_next_timestep(int timestep_no)
             nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
         }
     }
-
-    // Grab the previous timestep's solution matrix
-    Eigen::MatrixXd previousTimestepMatrix = solutionMatrices[timestep_no - 1];
 
     b.setZero();
     previousTimestepVector.setZero();
@@ -550,40 +549,35 @@ void PDESolver::solve_next_timestep(int timestep_no)
         }
     }
 
-    // Put nextTimestepMatrix into the vector of solution matrices
-
-    solutionMatrices[timestep_no] = nextTimestepMatrix;
-
-    // Reset nextTimestepMatrix in preparation for the next timestep
-
-    nextTimestepMatrix.setZero();
 }
 
-void PDESolver::solve_pde()
-{
-    for(int n = 1; n < timePoints.size(); n++)
-    {
-        solve_next_timestep(n);
-    }
-}
-
-void PDESolver::create_data_file(std::string filename)
+void PDESolver::get_solution_data(std::string filename)
 {
     std::ofstream dataFile;
     dataFile.open(filename);
 
-    for(int n = 0; n < timePoints.size(); n++)
+    // Append the 0th timestep data to file
+    append_next_timestep_data(dataFile, U);
+
+    // Solve all future timesteps
+    for(int n = 1; n < timePoints.size(); n++)
     {
-        for(int i = 0; i < solutionMatrices[n].rows(); i++)
-        {
-            for(int j = 0; j < solutionMatrices[n].cols(); j++)
-            {
-                dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << solutionMatrices[n](i, j) << std::endl;
-            }
-        }
+        solve_next_timestep(n);
+        append_next_timestep_data(dataFile, nextTimestepMatrix);
     }
 
     dataFile.close();
+}
+
+void PDESolver::append_next_timestep_data(std::ofstream& dataFile, Eigen::MatrixXd A)
+{
+    for(int i = 0; i < A.rows(); i++)
+    {
+        for(int j = 0; j < A.cols(); j++)
+        {
+            dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << A(i, j) << std::endl;
+        }
+    }
 }
 
 void PDESolver::plot_solution(std::string filename)
