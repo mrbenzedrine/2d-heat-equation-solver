@@ -31,7 +31,6 @@ class PDESolver
                 double,
                 double,
                 double,
-                double,
                 std::string,
                 std::string,
                 PDEConditionFunctions
@@ -40,7 +39,6 @@ class PDESolver
         PDESolver(
                 int,
                 int,
-                double,
                 double,
                 double,
                 double,
@@ -62,11 +60,8 @@ class PDESolver
         void create_kronecker_product_matrices();
         Eigen::MatrixXd kronecker_product(Eigen::MatrixXd, Eigen::MatrixXd);
         void solve_next_timestep(int);
-        void get_solution_data(std::string);
-        void append_next_timestep_data(std::ofstream&, Eigen::MatrixXd);
-        void plot_solution(std::string);
 
-    private:
+    protected:
         const int N_x;
         const int N_y;
         const double dt;
@@ -76,7 +71,6 @@ class PDESolver
         const double startY;
         const double endY;
         const double startT;
-        const double endT;
 
         const std::string xBCType;
         const std::string yBCType;
@@ -85,7 +79,6 @@ class PDESolver
 
         Eigen::VectorXd xSpacePoints;
         Eigen::VectorXd ySpacePoints;
-        Eigen::VectorXd timePoints;
 
         Eigen::MatrixXd nextTimestepMatrix;
 

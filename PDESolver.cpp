@@ -9,14 +9,13 @@ PDESolver::PDESolver(
         double startY,
         double endY,
         double startT,
-        double endT,
         std::string xBCType,
         std::string yBCType,
         PDEConditionFunctions conditionFuncs
 ):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
-    startT(startT), endT(endT),
+    startT(startT),
     xBCType(xBCType), yBCType(yBCType),
     conditionFuncs(conditionFuncs)
 {
@@ -33,7 +32,6 @@ PDESolver::PDESolver(
         double startY,
         double endY,
         double startT,
-        double endT,
         std::string xBCType,
         std::string yBCType,
         std::string neumannBCScheme,
@@ -41,7 +39,7 @@ PDESolver::PDESolver(
 ):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
-    startT(startT), endT(endT),
+    startT(startT),
     xBCType(xBCType), yBCType(yBCType),
     neumannBCScheme(neumannBCScheme),
     conditionFuncs(conditionFuncs)
@@ -60,17 +58,6 @@ void PDESolver::create_discretisation_vectors()
 {
     xSpacePoints = Eigen::VectorXd::LinSpaced(N_x + 1, startX, endX);
     ySpacePoints = Eigen::VectorXd::LinSpaced(N_y + 1, startY, endY);
-
-    int noOfTimePoints = 0;
-    double timeCounter = 0.0;
-
-    while(timeCounter <= (endT - startT))
-    {
-        timeCounter += dt;
-        noOfTimePoints++;
-    }
-
-    timePoints = Eigen::VectorXd::LinSpaced(noOfTimePoints, startT, endT);
 }
 
 void PDESolver::create_solution_matrix()
@@ -109,8 +96,8 @@ void PDESolver::apply_prelim_ic_bcs()
         {
             for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
             {
-                nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
-                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+                nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), startT);
+                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), startT);
             }
         }
 
@@ -119,8 +106,8 @@ void PDESolver::apply_prelim_ic_bcs()
         {
             for(int k = 0; k < nextTimestepMatrix.rows(); k++)
             {
-                nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
-                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+                nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), startT);
+                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), startT);
             }
         }
 
@@ -131,8 +118,8 @@ void PDESolver::apply_prelim_ic_bcs()
         // y boundaries
         for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
-            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(0, 0));
+            nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), startT);
+            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), startT);
         }
     }
 
@@ -141,8 +128,8 @@ void PDESolver::apply_prelim_ic_bcs()
         // x boundaries
         for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
-            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(0, 0));
+            nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), startT);
+            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), startT);
         }
     }
 
@@ -324,8 +311,8 @@ void PDESolver::solve_next_timestep(int timestep_no)
         {
             for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
             {
-                nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
-                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timestep_no * dt);
             }
         }
 
@@ -334,8 +321,8 @@ void PDESolver::solve_next_timestep(int timestep_no)
         {
             for(int k = 0; k < nextTimestepMatrix.rows(); k++)
             {
-                nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
-                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
+                nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timestep_no * dt);
+                nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timestep_no * dt);
             }
         }
 
@@ -346,8 +333,8 @@ void PDESolver::solve_next_timestep(int timestep_no)
         // y boundaries
         for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
-            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+            nextTimestepMatrix(0, j) = conditionFuncs.y_lower_dirichlet_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+            nextTimestepMatrix(nextTimestepMatrix.rows() - 1, j) = conditionFuncs.y_upper_dirichlet_bc_func(xSpacePoints(j, 0), timestep_no * dt);
         }
     }
 
@@ -356,8 +343,8 @@ void PDESolver::solve_next_timestep(int timestep_no)
         // x boundaries
         for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
-            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
+            nextTimestepMatrix(k, 0) = conditionFuncs.x_lhs_dirichlet_bc_func(ySpacePoints(k, 0), timestep_no * dt);
+            nextTimestepMatrix(k, nextTimestepMatrix.cols() - 1) = conditionFuncs.x_rhs_dirichlet_bc_func(ySpacePoints(k, 0), timestep_no * dt);
         }
     }
 
@@ -417,31 +404,31 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(j == xLowerBound && i == yLowerBound)
                 {
-                    b(0, 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(0, 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                     b(0, 0) += q * previousTimestepMatrix(0, 0);
                 }
                 else if(j == xLowerBound && i > yLowerBound && i < yUpperBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xLowerBound && i == yUpperBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                     b(xMatricesDim * (yMatricesDim - 1), 0) += q * previousTimestepMatrix(N_y, 0);
                 }
 
                 if(j == xUpperBound && i == yLowerBound)
                 {
-                    b(xMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                     b(xMatricesDim - 1, 0) += q * previousTimestepMatrix(0, xMatricesDim - 1);
                 }
                 else if(j == xUpperBound && i > yLowerBound && i < yUpperBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xUpperBound && i == yUpperBound)
                 {
-                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                     b(xMatricesDim * yMatricesDim - 1, 0) += q * previousTimestepMatrix(N_y, N_x);
                 }
 
@@ -457,31 +444,31 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(i == yLowerBound && j == xLowerBound)
                 {
-                    b(0, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(0, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                     b(0, 0) += r * previousTimestepMatrix(0, 0);
                 }
                 else if(i == yLowerBound && j > xLowerBound && j < xUpperBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yLowerBound && j == xUpperBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                     b(j - xLowerBound, 0) += r * previousTimestepMatrix(0, N_x);
                 }
 
                 if(i == yUpperBound && j == xLowerBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                     b(xMatricesDim * (yMatricesDim - 1), 0) += r * previousTimestepMatrix(N_y, 0);
                 }
                 else if(i == yUpperBound && j > xLowerBound && j < xUpperBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yUpperBound && j == xUpperBound)
                 {
-                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                     b(xMatricesDim * yMatricesDim - 1, 0) += r * previousTimestepMatrix(N_y, N_x);
                 }
 
@@ -497,20 +484,20 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(j == xLowerBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xUpperBound - 1)
                 {
-                    b(xMatricesDim * (i - yLowerBound) + j, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (i - yLowerBound) + j, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
 
                 if(i == yLowerBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yUpperBound - 1)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
             }
         }
@@ -532,8 +519,8 @@ void PDESolver::solve_next_timestep(int timestep_no)
     {
         for(int j = 1; j < nextTimestepMatrix.cols() - 1; j++)
         {
-            nextTimestepMatrix(0, j) = nextTimestepMatrix(1, j) - dy * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
-            nextTimestepMatrix(N_y, j) = nextTimestepMatrix(N_y - 1, j) + dy * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timePoints(timestep_no, 0));
+            nextTimestepMatrix(0, j) = nextTimestepMatrix(1, j) - dy * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+            nextTimestepMatrix(N_y, j) = nextTimestepMatrix(N_y - 1, j) + dy * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
         }
     }
 
@@ -541,67 +528,9 @@ void PDESolver::solve_next_timestep(int timestep_no)
     {
         for(int k = 0; k < nextTimestepMatrix.rows(); k++)
         {
-            nextTimestepMatrix(k, 0) = nextTimestepMatrix(k, 1) - dx * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
-            nextTimestepMatrix(k, N_x) = nextTimestepMatrix(k, N_x - 1) + dx * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(k, 0), timePoints(timestep_no, 0));
+            nextTimestepMatrix(k, 0) = nextTimestepMatrix(k, 1) - dx * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(k, 0), timestep_no * dt);
+            nextTimestepMatrix(k, N_x) = nextTimestepMatrix(k, N_x - 1) + dx * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(k, 0), timestep_no * dt);
         }
     }
 
-}
-
-void PDESolver::get_solution_data(std::string filename)
-{
-    std::ofstream dataFile;
-    dataFile.open(filename);
-
-    // Append the 0th timestep data to file
-    append_next_timestep_data(dataFile, nextTimestepMatrix);
-
-    // Solve all future timesteps
-    for(int n = 1; n < timePoints.size(); n++)
-    {
-        solve_next_timestep(n);
-        append_next_timestep_data(dataFile, nextTimestepMatrix);
-    }
-
-    dataFile.close();
-}
-
-void PDESolver::append_next_timestep_data(std::ofstream& dataFile, Eigen::MatrixXd A)
-{
-    for(int i = 0; i < A.rows(); i++)
-    {
-        for(int j = 0; j < A.cols(); j++)
-        {
-            dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << A(i, j) << std::endl;
-        }
-    }
-}
-
-void PDESolver::plot_solution(std::string filename)
-{
-    FILE* gnuplotPipe = popen("gnuplot -persist", "w");
-
-    if(gnuplotPipe)
-    {
-
-        fprintf(gnuplotPipe, "reset\n");
-        fprintf(gnuplotPipe, "set title '2D Heat Equation'\n");
-        fprintf(gnuplotPipe, "set xlabel 'x'\n");
-        fprintf(gnuplotPipe, "set ylabel 'y'\n");
-        fprintf(gnuplotPipe, "set zlabel 'U'\n");
-        fprintf(gnuplotPipe, "set dgrid3d 30,30\n");
-
-        // Animated plot of solution over time
-        fprintf(gnuplotPipe, "noOfTimePoints = %ld\n", timePoints.size());
-        fprintf(gnuplotPipe, "noOfXPoints = %d\n", N_x+1);
-        fprintf(gnuplotPipe, "noOfYPoints = %d\n", N_y+1);
-        fprintf(gnuplotPipe, "set xrange [0:1]\nset yrange [0:1]\nset zrange [0:1.5]\n");
-        fprintf(gnuplotPipe, "unset key\n");
-
-        fprintf(gnuplotPipe, "do for [n=0:noOfTimePoints-1]{set title 'timestep '.n\nsplot \"%s\" every ::n*noOfXPoints*noOfYPoints::((n+1)*noOfXPoints*noOfYPoints-1) with lines lc rgb 'purple'\npause 0.1}\n", filename.c_str());
-
-        fflush(gnuplotPipe);
-        pclose(gnuplotPipe);
-
-    }
 }
