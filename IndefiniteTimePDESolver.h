@@ -38,6 +38,7 @@ class IndefiniteTimePDESolver: public PDESolver
         void increment_timestep_counter(){timestepNumber++;};
         void reset_timestep_counter(){timestepNumber = 1;};
         Eigen::MatrixXd get_next_timestep_matrix();
+        void set_next_timestep_matrix_entry(int i, int j, double (*fp)(double)){nextTimestepMatrix(j, i) = (*fp)(nextTimestepMatrix(j, i));};
 
     private:
         int timestepNumber;
