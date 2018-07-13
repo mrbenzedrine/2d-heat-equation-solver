@@ -12,9 +12,10 @@ FiniteTimePDESolver::FiniteTimePDESolver(
         double endT,
         std::string xBCType,
         std::string yBCType,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ): endT(endT),
-    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, conditionFuncs)
+    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, conditionFuncs, theta)
 {
     create_time_points_vector();
 }
@@ -32,9 +33,10 @@ FiniteTimePDESolver::FiniteTimePDESolver(
         std::string xBCType,
         std::string yBCType,
         std::string neumannBCScheme,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ): endT(endT),
-    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, neumannBCScheme, conditionFuncs)
+    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, neumannBCScheme, conditionFuncs, theta)
 {
     create_time_points_vector();
 }

@@ -11,9 +11,10 @@ IndefiniteTimePDESolver::IndefiniteTimePDESolver(
         double startT,
         std::string xBCType,
         std::string yBCType,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ): timestepNumber(1),
-    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, conditionFuncs)
+    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, conditionFuncs, theta)
 {}
 
 IndefiniteTimePDESolver::IndefiniteTimePDESolver(
@@ -28,9 +29,10 @@ IndefiniteTimePDESolver::IndefiniteTimePDESolver(
         std::string xBCType,
         std::string yBCType,
         std::string neumannBCScheme,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ): timestepNumber(1),
-    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, neumannBCScheme, conditionFuncs)
+    PDESolver(N_x, N_y, dt, startX, endX, startY, endY, startT, xBCType, yBCType, neumannBCScheme, conditionFuncs, theta)
 {}
 
 Eigen::MatrixXd IndefiniteTimePDESolver::get_next_timestep_matrix()

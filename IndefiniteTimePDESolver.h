@@ -17,7 +17,8 @@ class IndefiniteTimePDESolver: public PDESolver
                 double,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         IndefiniteTimePDESolver(
@@ -32,7 +33,8 @@ class IndefiniteTimePDESolver: public PDESolver
                 std::string,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         void increment_timestep_counter(){timestepNumber++;};

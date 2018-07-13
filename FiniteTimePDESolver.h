@@ -18,7 +18,8 @@ class FiniteTimePDESolver: public PDESolver
                 double,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         FiniteTimePDESolver(
@@ -34,7 +35,8 @@ class FiniteTimePDESolver: public PDESolver
                 std::string,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         void create_time_points_vector();

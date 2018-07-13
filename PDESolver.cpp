@@ -11,13 +11,15 @@ PDESolver::PDESolver(
         double startT,
         std::string xBCType,
         std::string yBCType,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
     startT(startT),
     xBCType(xBCType), yBCType(yBCType),
-    conditionFuncs(conditionFuncs)
+    conditionFuncs(conditionFuncs),
+    theta(theta)
 {
     initialise_vectors_matrices();
     perform_prelim_mathematical_routines();
@@ -35,14 +37,16 @@ PDESolver::PDESolver(
         std::string xBCType,
         std::string yBCType,
         std::string neumannBCScheme,
-        PDEConditionFunctions conditionFuncs
+        PDEConditionFunctions conditionFuncs,
+        double theta
 ):N_x(N_x), N_y(N_y), dt(dt),
     startX(startX), endX(endX),
     startY(startY), endY(endY),
     startT(startT),
     xBCType(xBCType), yBCType(yBCType),
     neumannBCScheme(neumannBCScheme),
-    conditionFuncs(conditionFuncs)
+    conditionFuncs(conditionFuncs),
+    theta(theta)
 {
     initialise_vectors_matrices();
     perform_prelim_mathematical_routines();
@@ -163,15 +167,19 @@ void PDESolver::create_kronecker_product_matrices()
         yMatricesDim = N_y + 1;
     }
 
-    Eigen::internal::BandMatrix<double> D_x(xMatricesDim, xMatricesDim, 1, 1);
-    Eigen::internal::BandMatrix<double> D_y(yMatricesDim, yMatricesDim, 1, 1);
+    Eigen::internal::BandMatrix<double> previousTimestepD_x(xMatricesDim, xMatricesDim, 1, 1);
+    Eigen::internal::BandMatrix<double> previousTimestepD_y(yMatricesDim, yMatricesDim, 1, 1);
+    Eigen::internal::BandMatrix<double> nextTimestepD_x(xMatricesDim, xMatricesDim, 1, 1);
+    Eigen::internal::BandMatrix<double> nextTimestepD_y(yMatricesDim, yMatricesDim, 1, 1);
     Eigen::MatrixXd I_x = Eigen::MatrixXd::Identity(xMatricesDim, xMatricesDim);
     Eigen::MatrixXd I_y = Eigen::MatrixXd::Identity(yMatricesDim, yMatricesDim);
 
-    for(int i = -D_x.subs(); i <= D_x.supers(); i++)
+    for(int i = -previousTimestepD_x.subs(); i <= previousTimestepD_x.supers(); i++)
     {
-        D_x.diagonal(i).setConstant(0);
-        D_y.diagonal(i).setConstant(0);
+        previousTimestepD_x.diagonal(i).setConstant(0);
+        previousTimestepD_y.diagonal(i).setConstant(0);
+        nextTimestepD_x.diagonal(i).setConstant(0);
+        nextTimestepD_y.diagonal(i).setConstant(0);
     }
 
     // Define some useful constants
@@ -180,31 +188,57 @@ void PDESolver::create_kronecker_product_matrices()
     double dy = 1.0/N_y;
     double q = dt/pow(dx, 2.0);
     double r = dt/pow(dy, 2.0);
+    double previousTimestepKronProdMatrixAFactor = (1.0 - theta) * q;
+    double previousTimestepKronProdMatrixBFactor = (1.0 - theta) * r;
+    double nextTimestepKronProdMatrixAFactor = -theta * q;
+    double nextTimestepKronProdMatrixBFactor = -theta * r;
 
-    D_x.diagonal(0).setConstant(-2.0 * q);
-    D_x.diagonal(-1).setConstant(1.0 * q);
-    D_x.diagonal(1).setConstant(1.0 * q);
+    previousTimestepD_x.diagonal(0).setConstant(-2.0 * previousTimestepKronProdMatrixAFactor);
+    previousTimestepD_x.diagonal(-1).setConstant(1.0 * previousTimestepKronProdMatrixAFactor);
+    previousTimestepD_x.diagonal(1).setConstant(1.0 * previousTimestepKronProdMatrixAFactor);
 
-    D_y.diagonal(0).setConstant(-2.0 * r);
-    D_y.diagonal(-1).setConstant(1.0 * r);
-    D_y.diagonal(1).setConstant(1.0 * r);
+    previousTimestepD_y.diagonal(0).setConstant(-2.0 * previousTimestepKronProdMatrixBFactor);
+    previousTimestepD_y.diagonal(-1).setConstant(1.0 * previousTimestepKronProdMatrixBFactor);
+    previousTimestepD_y.diagonal(1).setConstant(1.0 * previousTimestepKronProdMatrixBFactor);
+
+    nextTimestepD_x.diagonal(0).setConstant(-2.0 * nextTimestepKronProdMatrixAFactor);
+    nextTimestepD_x.diagonal(-1).setConstant(1.0 * nextTimestepKronProdMatrixAFactor);
+    nextTimestepD_x.diagonal(1).setConstant(1.0 * nextTimestepKronProdMatrixAFactor);
+
+    nextTimestepD_y.diagonal(0).setConstant(-2.0 * nextTimestepKronProdMatrixBFactor);
+    nextTimestepD_y.diagonal(-1).setConstant(1.0 * nextTimestepKronProdMatrixBFactor);
+    nextTimestepD_y.diagonal(1).setConstant(1.0 * nextTimestepKronProdMatrixBFactor);
+
+    if(xBCType == "neumann" && neumannBCScheme == "onesided")
+    {
+        nextTimestepD_x.diagonal(0)(0) = -1 * nextTimestepKronProdMatrixAFactor;
+        nextTimestepD_x.diagonal(0)(xMatricesDim - 1) = -1 * nextTimestepKronProdMatrixAFactor;
+    }
+
+    if(yBCType == "neumann" && neumannBCScheme == "onesided")
+    {
+        nextTimestepD_y.diagonal(0)(0) = -1 * nextTimestepKronProdMatrixBFactor;
+        nextTimestepD_y.diagonal(0)(yMatricesDim - 1) = -1 * nextTimestepKronProdMatrixBFactor;
+    }
 
     if(xBCType == "neumann" && neumannBCScheme == "ghost")
     {
-        D_x.diagonal(1)(0) = 2 * q;
-        D_x.diagonal(-1)(xMatricesDim - 2) = 2 * q;
+        nextTimestepD_x.diagonal(1)(0) = 2 * nextTimestepKronProdMatrixAFactor;
+        nextTimestepD_x.diagonal(-1)(xMatricesDim - 2) = 2 * nextTimestepKronProdMatrixAFactor;
     }
 
     if(yBCType == "neumann" && neumannBCScheme == "ghost")
     {
-        D_y.diagonal(1)(0) = 2 * r;
-        D_y.diagonal(-1)(yMatricesDim - 2) = 2 * r;
+        nextTimestepD_y.diagonal(1)(0) = 2 * nextTimestepKronProdMatrixBFactor;
+        nextTimestepD_y.diagonal(-1)(yMatricesDim - 2) = 2 * nextTimestepKronProdMatrixBFactor;
     }
 
     // Define Kronecker product matrices
 
-    kroneckerProdMatrixA = kronecker_product(I_y, D_x.toDenseMatrix());
-    kroneckerProdMatrixB = kronecker_product(D_y.toDenseMatrix(), I_x);
+    previousTimestepKronProdMatrixA = kronecker_product(I_y, previousTimestepD_x.toDenseMatrix());
+    previousTimestepKronProdMatrixB = kronecker_product(previousTimestepD_y.toDenseMatrix(), I_x);
+    nextTimestepKronProdMatrixA = kronecker_product(I_y, nextTimestepD_x.toDenseMatrix());
+    nextTimestepKronProdMatrixB = kronecker_product(nextTimestepD_y.toDenseMatrix(), I_x);
 }
 
 Eigen::MatrixXd PDESolver::kronecker_product(Eigen::MatrixXd A, Eigen::MatrixXd B)
@@ -364,6 +398,10 @@ void PDESolver::solve_next_timestep(int timestep_no)
     double dy = 1.0/N_y;
     double q = dt/pow(dx, 2.0);
     double r = dt/pow(dy, 2.0);
+    double previousTimestepMatrixAFactor = (1.0 - theta) * q;
+    double previousTimestepMatrixBFactor = (1.0 - theta) * r;
+    double nextTimestepMatrixAFactor = -theta * q;
+    double nextTimestepMatrixBFactor = -theta * r;
 
     // Putting the appropriate boundary points into the vector b
     if((xBCType == "dirichlet" && yBCType == "dirichlet") || (xBCType == "neumann" || yBCType == "neumann") && neumannBCScheme == "onesided")
@@ -374,20 +412,94 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(i - 1 == 0)
                 {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i-1, j);
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(i-1, j);
                 }
                 else if(i + 1 == N_y)
                 {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += r * previousTimestepMatrix(i+1, j);
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(i+1, j);
                 }
 
                 if(j - 1 == 0)
                 {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j-1);
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(i, j-1);
                 }
                 else if(j + 1 == N_x)
                 {
-                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += q * previousTimestepMatrix(i, j+1);
+                    b((i-1) * (previousTimestepMatrix.cols() - 2) + (j-1), 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(i, j+1);
+                }
+            }
+        }
+    }
+
+    // If there are Neumann BCs to be solved using a onesided scheme, need to put additional
+    // terms in the vector b
+
+    if(yBCType == "neumann" && neumannBCScheme == "onesided")
+    {
+        for(int i = yLowerBound; i < yUpperBound + 1; i++)
+        {
+            for(int j = xLowerBound; j < xUpperBound + 1; j++)
+            {
+                if(i == yLowerBound && j == xLowerBound)
+                {
+                    b(0, 0) += -dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+                else if(i == yLowerBound && j > xLowerBound && j < xUpperBound)
+                {
+                    b(j - xLowerBound, 0) += -dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+                else if(i == yLowerBound && j == xUpperBound)
+                {
+                    b(j - xLowerBound, 0) += -dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+
+                if(i == yUpperBound && j == xLowerBound)
+                {
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+                else if(i == yUpperBound && j > xLowerBound && j < xUpperBound)
+                {
+                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+                else if(i == yUpperBound && j == xUpperBound)
+                {
+                    b(xMatricesDim * yMatricesDim - 1, 0) += dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                }
+
+            }
+        }
+    }
+
+    if(xBCType == "neumann" && neumannBCScheme == "onesided")
+    {
+        for(int i = yLowerBound; i < yUpperBound + 1; i++)
+        {
+            for(int j = xLowerBound; j < xUpperBound + 1; j++)
+            {
+                if(j == xLowerBound && i == yLowerBound)
+                {
+                    b(0, 0) += -dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                }
+                else if(j == j == xLowerBound && i > yLowerBound && i < yUpperBound)
+                {
+                    b(xMatricesDim * (i - yLowerBound), 0) += -dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                }
+                else if(j == xLowerBound && i == yUpperBound)
+                {
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += -dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                }
+
+                if(j == xUpperBound && i == yLowerBound)
+                {
+                    b(xMatricesDim - 1, 0) += dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                }
+                else if(j == xUpperBound && i > yLowerBound && i < yUpperBound)
+                {
+                    b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                }
+                else if(j == xUpperBound && i == yUpperBound)
+                {
+                    b(xMatricesDim * yMatricesDim - 1, 0) += dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
             }
         }
@@ -404,32 +516,32 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(j == xLowerBound && i == yLowerBound)
                 {
-                    b(0, 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
-                    b(0, 0) += q * previousTimestepMatrix(0, 0);
+                    b(0, 0) += -2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(0, 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(0, 0);
                 }
                 else if(j == xLowerBound && i > yLowerBound && i < yUpperBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xLowerBound && i == yUpperBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += q * previousTimestepMatrix(N_y, 0);
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += -2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(N_y, 0);
                 }
 
                 if(j == xUpperBound && i == yLowerBound)
                 {
-                    b(xMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
-                    b(xMatricesDim - 1, 0) += q * previousTimestepMatrix(0, xMatricesDim - 1);
+                    b(xMatricesDim - 1, 0) += 2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim - 1, 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(0, xMatricesDim - 1);
                 }
                 else if(j == xUpperBound && i > yLowerBound && i < yUpperBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * (i - yLowerBound) + (xMatricesDim - 1), 0) += 2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xUpperBound && i == yUpperBound)
                 {
-                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
-                    b(xMatricesDim * yMatricesDim - 1, 0) += q * previousTimestepMatrix(N_y, N_x);
+                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * yMatricesDim - 1, 0) += previousTimestepMatrixAFactor * previousTimestepMatrix(N_y, N_x);
                 }
 
             }
@@ -444,32 +556,32 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(i == yLowerBound && j == xLowerBound)
                 {
-                    b(0, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
-                    b(0, 0) += r * previousTimestepMatrix(0, 0);
+                    b(0, 0) += -2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(0, 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(0, 0);
                 }
                 else if(i == yLowerBound && j > xLowerBound && j < xUpperBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(j - xLowerBound, 0) += -2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yLowerBound && j == xUpperBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
-                    b(j - xLowerBound, 0) += r * previousTimestepMatrix(0, N_x);
+                    b(j - xLowerBound, 0) += -2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(j - xLowerBound, 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(0, N_x);
                 }
 
                 if(i == yUpperBound && j == xLowerBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
-                    b(xMatricesDim * (yMatricesDim - 1), 0) += r * previousTimestepMatrix(N_y, 0);
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += 2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(xMatricesDim * (yMatricesDim - 1), 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(N_y, 0);
                 }
                 else if(i == yUpperBound && j > xLowerBound && j < xUpperBound)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yUpperBound && j == xUpperBound)
                 {
-                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
-                    b(xMatricesDim * yMatricesDim - 1, 0) += r * previousTimestepMatrix(N_y, N_x);
+                    b(xMatricesDim * yMatricesDim - 1, 0) += 2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(xMatricesDim * yMatricesDim - 1, 0) += previousTimestepMatrixBFactor * previousTimestepMatrix(N_y, N_x);
                 }
 
             }
@@ -484,26 +596,29 @@ void PDESolver::solve_next_timestep(int timestep_no)
             {
                 if(j == xLowerBound)
                 {
-                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * (dt/dx) * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * (i - yLowerBound), 0) += -2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_lhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
                 else if(j == xUpperBound - 1)
                 {
-                    b(xMatricesDim * (i - yLowerBound) + j, 0) += 2 * (dt/dx) * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
+                    b(xMatricesDim * (i - yLowerBound) + j, 0) += 2 * dx * nextTimestepMatrixAFactor * conditionFuncs.x_rhs_neumann_bc_func(ySpacePoints(i, 0), timestep_no * dt);
                 }
 
                 if(i == yLowerBound)
                 {
-                    b(j - xLowerBound, 0) += -2 * (dt/dy) * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(j - xLowerBound, 0) += -2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_lower_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
                 else if(i == yUpperBound - 1)
                 {
-                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * (dt/dy) * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
+                    b(xMatricesDim * (yMatricesDim - 1) + j - xLowerBound, 0) += 2 * dy * nextTimestepMatrixBFactor * conditionFuncs.y_upper_neumann_bc_func(xSpacePoints(j, 0), timestep_no * dt);
                 }
             }
         }
     }
 
-    nextTimestepVector = (Eigen::MatrixXd::Identity(xMatricesDim * yMatricesDim, xMatricesDim * yMatricesDim) + kroneckerProdMatrixA + kroneckerProdMatrixB) * previousTimestepVector + b;
+    Eigen::MatrixXd idMatrix = Eigen::MatrixXd::Identity(xMatricesDim * yMatricesDim, xMatricesDim * yMatricesDim);
+    Eigen::MatrixXd previousTimestepMatrices = idMatrix + previousTimestepKronProdMatrixA + previousTimestepKronProdMatrixB;
+    Eigen::MatrixXd nextTimestepMatrices = idMatrix + nextTimestepKronProdMatrixA + nextTimestepKronProdMatrixB;
+    nextTimestepVector = nextTimestepMatrices.inverse() * (previousTimestepMatrices * previousTimestepVector + b);
 
     // Copy info from nextTimestepVector into nextTimestepMatrix
 

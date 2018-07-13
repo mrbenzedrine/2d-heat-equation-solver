@@ -33,7 +33,8 @@ class PDESolver
                 double,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         PDESolver(
@@ -48,7 +49,8 @@ class PDESolver
                 std::string,
                 std::string,
                 std::string,
-                PDEConditionFunctions
+                PDEConditionFunctions,
+                double = 1.0/2.0
         );
 
         void initialise_vectors_matrices();
@@ -77,6 +79,8 @@ class PDESolver
         const std::string neumannBCScheme;
         PDEConditionFunctions conditionFuncs;
 
+        const double theta;
+
         Eigen::VectorXd xSpacePoints;
         Eigen::VectorXd ySpacePoints;
 
@@ -85,8 +89,10 @@ class PDESolver
         int xMatricesDim;
         int yMatricesDim;
 
-        Eigen::MatrixXd kroneckerProdMatrixA;
-        Eigen::MatrixXd kroneckerProdMatrixB;
+        Eigen::MatrixXd previousTimestepKronProdMatrixA;
+        Eigen::MatrixXd previousTimestepKronProdMatrixB;
+        Eigen::MatrixXd nextTimestepKronProdMatrixA;
+        Eigen::MatrixXd nextTimestepKronProdMatrixB;
 
         int xLowerBound;
         int xUpperBound;
