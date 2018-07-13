@@ -1,6 +1,8 @@
 #ifndef GUARD_FiniteTimePDESolver_h
 #define GUARD_FiniteTimePDESolver_h
 
+#include <fstream>
+
 #include "PDESolver.h"
 
 class FiniteTimePDESolver: public PDESolver
