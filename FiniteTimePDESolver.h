@@ -43,7 +43,7 @@ class FiniteTimePDESolver: public PDESolver
 
         void create_time_points_vector();
         void get_solution_data(std::string);
-        void append_next_timestep_data(std::ofstream&, Eigen::MatrixXd);
+        void append_next_timestep_data(std::ofstream&);
         void plot_solution(std::string);
 
     private:

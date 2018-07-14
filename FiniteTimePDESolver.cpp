@@ -61,25 +61,25 @@ void FiniteTimePDESolver::get_solution_data(std::string filename)
     dataFile.open(filename);
 
     // Append the 0th timestep data to file
-    append_next_timestep_data(dataFile, nextTimestepMatrix);
+    append_next_timestep_data(dataFile);
 
     // Solve all future timesteps
     for(int n = 1; n < timePoints.size(); n++)
     {
         solve_next_timestep(n);
-        append_next_timestep_data(dataFile, nextTimestepMatrix);
+        append_next_timestep_data(dataFile);
     }
 
     dataFile.close();
 }
 
-void FiniteTimePDESolver::append_next_timestep_data(std::ofstream& dataFile, Eigen::MatrixXd A)
+void FiniteTimePDESolver::append_next_timestep_data(std::ofstream& dataFile)
 {
-    for(int i = 0; i < A.rows(); i++)
+    for(int i = 0; i < nextTimestepMatrix.rows(); i++)
     {
-        for(int j = 0; j < A.cols(); j++)
+        for(int j = 0; j < nextTimestepMatrix.cols(); j++)
         {
-            dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << A(i, j) << std::endl;
+            dataFile << xSpacePoints(j, 0) << " " << ySpacePoints(i, 0) << " " << nextTimestepMatrix(i, j) << std::endl;
         }
     }
 }
