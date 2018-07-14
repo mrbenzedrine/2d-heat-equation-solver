@@ -67,7 +67,6 @@ void PDESolver::create_discretisation_vectors()
 void PDESolver::create_solution_matrix()
 {
     nextTimestepMatrix = Eigen::MatrixXd(ySpacePoints.size(), xSpacePoints.size());
-    nextTimestepMatrix.setZero();
 }
 
 void PDESolver::perform_prelim_mathematical_routines()
@@ -333,7 +332,6 @@ void PDESolver::solve_next_timestep(int timestep_no)
 
     // Grab the previous timestep's solution matrix
     Eigen::MatrixXd previousTimestepMatrix = nextTimestepMatrix;
-    nextTimestepMatrix.setZero();
 
     // Set the BCs for the solution matrix of the next timestep
 
@@ -383,8 +381,6 @@ void PDESolver::solve_next_timestep(int timestep_no)
     }
 
     b.setZero();
-    previousTimestepVector.setZero();
-    nextTimestepVector.setZero();
 
     for(int i = 0; i < yMatricesDim; i++)
     {
