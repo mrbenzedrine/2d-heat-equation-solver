@@ -614,7 +614,7 @@ void PDESolver::solve_next_timestep(int timestep_no)
     Eigen::MatrixXd idMatrix = Eigen::MatrixXd::Identity(xMatricesDim * yMatricesDim, xMatricesDim * yMatricesDim);
     Eigen::MatrixXd previousTimestepMatrices = idMatrix + previousTimestepKronProdMatrixA + previousTimestepKronProdMatrixB;
     Eigen::MatrixXd nextTimestepMatrices = idMatrix + nextTimestepKronProdMatrixA + nextTimestepKronProdMatrixB;
-    nextTimestepVector = nextTimestepMatrices.inverse() * (previousTimestepMatrices * previousTimestepVector + b);
+    nextTimestepVector = nextTimestepMatrices.lu().solve(previousTimestepMatrices * previousTimestepVector + b);
 
     // Copy info from nextTimestepVector into nextTimestepMatrix
 
